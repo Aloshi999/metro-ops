@@ -1,0 +1,7 @@
+.godot/
+*.translation
+export/
+builds/**/*
+!builds/**/.gitkeep
+*.import
+.import/
