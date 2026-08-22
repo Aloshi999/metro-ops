@@ -54,9 +54,9 @@ func _sim_chunk(map: MapData, chunk: ChunkData) -> void:
 			var z: int = map.zone[i]
 			if z == TileTypes.Zone.NONE:
 				continue
-			var has_power := map.powered[i] == 1
-			var has_water := map.watered[i] == 1
-			var has_road := map.has_road_neighbor(x, y)
+			var has_power: bool = map.powered[i] == 1
+			var has_water: bool = map.watered[i] == 1
+			var has_road: bool = map.has_road_neighbor(x, y)
 			if has_power:
 				chunk.powered_zone_tiles += 1
 			if has_water:
@@ -73,7 +73,7 @@ func _sim_chunk(map: MapData, chunk: ChunkData) -> void:
 
 			# Aggregate growth toward target (no agents)
 			var occ: float = map.occupancy[i]
-			var rate := 0.08 if target > occ else 0.12
+			var rate: float = 0.08 if target > occ else 0.12
 			occ = lerpf(occ, target, rate)
 			map.occupancy[i] = occ
 

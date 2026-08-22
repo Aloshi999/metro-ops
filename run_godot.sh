@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /workspace/tools/godot/Godot_v4.7.2-stable_linux.x86_64 "$@"

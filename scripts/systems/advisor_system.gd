@@ -11,8 +11,8 @@ var messages: Array = []  # Array of {sev, text}
 
 func evaluate(map: MapData, budget: BudgetSystem, tool_name: String) -> Array:
 	messages.clear()
-	var has_power := map.power_plants.size() > 0
-	var has_water := map.water_towers.size() > 0
+	var has_power: bool = map.power_plants.size() > 0
+	var has_water: bool = map.water_towers.size() > 0
 	var zone_count := _count_zones(map)
 
 	if budget.cash < 500:

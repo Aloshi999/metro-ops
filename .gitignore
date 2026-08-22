@@ -1,7 +1,7 @@
 .godot/
 *.translation
-export/
-builds/**/*
-!builds/**/.gitkeep
+export.cfg
+export_presets.cfg
+.mono/
+data_*/
 *.import
-.import/

@@ -108,7 +108,7 @@ func _place_hq() -> void:
 	# Seed a small cross of roads
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
 			Vector2i(2, 0), Vector2i(-2, 0), Vector2i(0, 2), Vector2i(0, -2)]:
-		var p := hq + d
+		var p: Vector2i = hq + d
 		if in_bounds(p.x, p.y):
 			var j := idx(p.x, p.y)
 			if terrain[j] != TileTypes.Terrain.WATER:
@@ -232,8 +232,8 @@ func _stamp_one(p: Vector2i, radius: int, field: PackedByteArray, r2: int = -1) 
 
 func has_road_neighbor(x: int, y: int) -> bool:
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		var nx := x + d.x
-		var ny := y + d.y
+		var nx: int = x + d.x
+		var ny: int = y + d.y
 		if in_bounds(nx, ny) and road[idx(nx, ny)] == 1:
 			return true
 	return false
