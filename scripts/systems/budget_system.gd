@@ -1,6 +1,6 @@
 class_name BudgetSystem
 extends RefCounted
-## Simple cash ledger: tax from aggregate occupancy, upkeep for services.
+## Cash ledger: per-zone tax from aggregate occupancy, upkeep for services.
 
 signal cash_changed(cash: int, income: int, upkeep: int)
 
@@ -34,11 +34,12 @@ func tick(map: MapData) -> void:
 	upkeep += map.power_plants.size() * GameConstants.POWER_UPKEEP
 	upkeep += map.water_towers.size() * GameConstants.WATER_UPKEEP
 
+	var event_mult: float = demand_mult * tax_mult
 	for c in map.chunks:
 		var chunk: ChunkData = c
 		if not chunk.active:
 			continue
-		income_f += chunk.tax_yield(GameConstants.TAX_PER_OCCUPANCY, demand_mult * tax_mult)
+		income_f += chunk.tax_yield_weighted(event_mult)
 
 	last_income = int(income_f)
 	last_upkeep = upkeep

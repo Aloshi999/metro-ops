@@ -29,7 +29,17 @@ func reset_counts() -> void:
 	serviced_zone_tiles = 0
 
 func tax_yield(tax_per: float, demand_mult: float) -> float:
+	## Legacy flat rate (kept for smoke/compat callers)
 	if damaged:
 		return 0.0
 	var occ_sum := res_occ * res_tiles + com_occ * com_tiles + ind_occ * ind_tiles
 	return occ_sum * tax_per * demand_mult
+
+func tax_yield_weighted(event_mult: float) -> float:
+	if damaged:
+		return 0.0
+	var income := 0.0
+	income += res_occ * float(res_tiles) * GameConstants.TAX_RES
+	income += com_occ * float(com_tiles) * GameConstants.TAX_COM
+	income += ind_occ * float(ind_tiles) * GameConstants.TAX_IND
+	return income * event_mult

@@ -101,10 +101,13 @@ func _init() -> void:
 		sim.tick(map, budget)
 
 	var advisor := AdvisorSystem.new()
-	var msgs := advisor.evaluate(map, budget, "zone_r")
+	var msgs := advisor.evaluate(map, budget, "zone_r", sim)
 	if msgs.is_empty():
 		ok = false
 		errors.append("advisor empty")
+	if sim.demand_r <= 0.0 or sim.demand_c <= 0.0 or sim.demand_i <= 0.0:
+		ok = false
+		errors.append("RCI demand not computed")
 
 	var war := sim.start_war(budget)
 	if budget.tax_mult >= 1.0:
@@ -116,6 +119,9 @@ func _init() -> void:
 	if not war.has("title"):
 		ok = false
 		errors.append("war event malformed")
+	if "Commercial" not in str(war.get("body", "")):
+		ok = false
+		errors.append("war body missing demand feedback")
 
 	var dis := sim.start_disaster(map, budget)
 	if budget.demand_mult >= 1.0:

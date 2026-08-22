@@ -8,6 +8,7 @@ signal advisor_dismissed
 @onready var cash_label: Label = %CashLabel
 @onready var flow_label: Label = %FlowLabel
 @onready var tool_label: Label = %ToolLabel
+@onready var rci_label: Label = %RciLabel
 @onready var advisor_panel: PanelContainer = %AdvisorPanel
 @onready var advisor_text: RichTextLabel = %AdvisorText
 @onready var event_toast: PanelContainer = %EventToast
@@ -25,7 +26,7 @@ func _ready() -> void:
 	event_toast.visible = false
 	paused_label.visible = false
 	fps_label.visible = false
-	help_label.text = "Deck: D-pad/stick pan · A paint · L1/R1 tool · Start advisor · Select FPS  |  Keys: WASD · Space · Q/E · Esc · F3 · 1 War · 2 Disaster"
+	help_label.text = "Deck: L-stick pan · R-stick zoom/aim · A paint · L1/R1 cycle · Y radial · X brush · Start advisor · Select FPS  |  Keys: WASD · Space · Q/E · R radial · B brush · Esc · F3 · 1/2 events"
 
 
 func _process(dt: float) -> void:
@@ -45,8 +46,13 @@ func set_cash(cash: int, income: int, upkeep: int) -> void:
 	flow_label.modulate = Color(0.5, 1.0, 0.6) if net >= 0 else Color(1.0, 0.45, 0.4)
 
 
-func set_tool(label: String) -> void:
-	tool_label.text = "Tool: %s" % label
+func set_tool(label: String, brush: int = 1) -> void:
+	tool_label.text = "Tool: %s  ·  brush %d×%d" % [label, brush, brush]
+
+
+func set_rci(label: String) -> void:
+	# Dedicated Deck strip — never stomp cash Δ
+	rci_label.text = label
 
 
 func set_advisor(messages: Array) -> void:

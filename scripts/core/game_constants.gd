@@ -37,3 +37,20 @@ const DISASTER_DEMAND_MULT: float = 0.35
 const DISASTER_DURATION_TICKS: int = 80
 
 const SIM_TICK_SEC: float = 0.5
+
+# Aggregate RCI demand (no agents). Demand scales growth toward service targets.
+const RCI_DEMAND_BASE: float = 0.55
+const RCI_DEMAND_MIN: float = 0.08
+const RCI_DEMAND_MAX: float = 1.45
+const RCI_BALANCE_GAIN: float = 0.55
+const TAX_RES: float = 0.28
+const TAX_COM: float = 0.42
+const TAX_IND: float = 0.38
+
+# Event pressure on zone demand (multiplies city demand while timer runs)
+const WAR_DEMAND_R: float = 0.85
+const WAR_DEMAND_C: float = 0.40
+const WAR_DEMAND_I: float = 0.55
+const DISASTER_DEMAND_R: float = 0.30
+const DISASTER_DEMAND_C: float = 0.70
+const DISASTER_DEMAND_I: float = 0.75

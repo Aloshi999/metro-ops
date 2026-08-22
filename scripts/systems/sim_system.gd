@@ -1,20 +1,34 @@
 class_name SimSystem
 extends RefCounted
 ## Active-chunk aggregate sim only. No per-citizen agents, no traffic pathfinding.
+## City-wide RCI demand triangle drives occupancy growth; war/disaster bend demand.
 
 signal tick_done
+signal demand_changed(res_d: float, com_d: float, ind_d: float)
 
 var tick_count: int = 0
 var war_timer: int = 0
 var disaster_timer: int = 0
 
+## City demand 0..~1.45 (service target multiplier per zone type)
+var demand_r: float = GameConstants.RCI_DEMAND_BASE
+var demand_c: float = GameConstants.RCI_DEMAND_BASE
+var demand_i: float = GameConstants.RCI_DEMAND_BASE
+
+## Aggregate occupied "mass" (occ * tiles) last tick — advisor / HUD
+var mass_r: float = 0.0
+var mass_c: float = 0.0
+var mass_i: float = 0.0
+
 
 func tick(map: MapData, budget: BudgetSystem) -> void:
 	tick_count += 1
 	_tick_events(budget)
+	_recompute_city_demand(map, budget)
 	_sim_active_chunks(map)
 	budget.tick(map)
 	tick_done.emit()
+	demand_changed.emit(demand_r, demand_c, demand_i)
 
 
 func _tick_events(budget: BudgetSystem) -> void:
@@ -26,6 +40,57 @@ func _tick_events(budget: BudgetSystem) -> void:
 		disaster_timer -= 1
 		if disaster_timer <= 0:
 			budget.demand_mult = 1.0
+
+
+func _recompute_city_demand(map: MapData, budget: BudgetSystem) -> void:
+	var r_m := 0.0
+	var c_m := 0.0
+	var i_m := 0.0
+	for c in map.chunks:
+		var chunk: ChunkData = c
+		if not chunk.active:
+			continue
+		r_m += chunk.res_occ * float(chunk.res_tiles)
+		c_m += chunk.com_occ * float(chunk.com_tiles)
+		i_m += chunk.ind_occ * float(chunk.ind_tiles)
+	mass_r = r_m
+	mass_c = c_m
+	mass_i = i_m
+
+	# Jobs vs homes vs shops — classic aggregate RCI pull
+	var jobs := c_m + i_m * 1.15
+	var homes := r_m
+	var shops := c_m
+	var g := GameConstants.RCI_BALANCE_GAIN
+	var base := GameConstants.RCI_DEMAND_BASE
+
+	var dr := base + (jobs - homes) * g * 0.04
+	var dc := base + (homes - shops) * g * 0.045
+	var di := base + (shops * 0.75 + homes * 0.25 - i_m) * g * 0.04
+
+	# Seed demand when city is empty so first zones still fill
+	if homes + jobs < 0.5:
+		dr = base + 0.25
+		dc = base + 0.15
+		di = base + 0.10
+
+	# Event bends
+	if war_timer > 0:
+		dr *= GameConstants.WAR_DEMAND_R
+		dc *= GameConstants.WAR_DEMAND_C
+		di *= GameConstants.WAR_DEMAND_I
+	if disaster_timer > 0:
+		dr *= GameConstants.DISASTER_DEMAND_R
+		dc *= GameConstants.DISASTER_DEMAND_C
+		di *= GameConstants.DISASTER_DEMAND_I
+		# Global demand_mult already on tax; keep growth harsh on R
+		dr *= budget.demand_mult
+		dc *= lerpf(1.0, budget.demand_mult, 0.5)
+		di *= lerpf(1.0, budget.demand_mult, 0.35)
+
+	demand_r = clampf(dr, GameConstants.RCI_DEMAND_MIN, GameConstants.RCI_DEMAND_MAX)
+	demand_c = clampf(dc, GameConstants.RCI_DEMAND_MIN, GameConstants.RCI_DEMAND_MAX)
+	demand_i = clampf(di, GameConstants.RCI_DEMAND_MIN, GameConstants.RCI_DEMAND_MAX)
 
 
 func _sim_active_chunks(map: MapData) -> void:
@@ -62,18 +127,37 @@ func _sim_chunk(map: MapData, chunk: ChunkData) -> void:
 			if has_water:
 				chunk.watered_zone_tiles += 1
 
-			var target := 0.0
+			var service_target := 0.0
 			if has_power and has_water and has_road and map.damaged_tile[i] == 0 and not chunk.damaged:
 				chunk.serviced_zone_tiles += 1
-				target = 1.0
+				service_target = 1.0
 			elif has_power or has_water:
-				target = 0.15
+				service_target = 0.15
 			else:
-				target = 0.0
+				service_target = 0.0
 
-			# Aggregate growth toward target (no agents)
+			var zone_demand := 1.0
+			match z:
+				TileTypes.Zone.RESIDENTIAL:
+					zone_demand = demand_r
+				TileTypes.Zone.COMMERCIAL:
+					zone_demand = demand_c
+				TileTypes.Zone.INDUSTRIAL:
+					zone_demand = demand_i
+
+			# Cap occupancy by services; demand scales how hard we push toward that cap
+			var target := service_target * clampf(zone_demand, 0.0, 1.0)
+			if zone_demand > 1.0 and service_target >= 1.0:
+				# Hot demand fills slightly past "full" visually capped at 1
+				target = 1.0
+
 			var occ: float = map.occupancy[i]
 			var rate: float = 0.08 if target > occ else 0.12
+			# Hot demand grows faster; cold demand empties faster
+			if target > occ:
+				rate *= lerpf(0.7, 1.35, clampf(zone_demand / GameConstants.RCI_DEMAND_MAX, 0.0, 1.0))
+			else:
+				rate *= lerpf(1.25, 0.75, clampf(zone_demand, 0.0, 1.0))
 			occ = lerpf(occ, target, rate)
 			map.occupancy[i] = occ
 
@@ -99,7 +183,7 @@ func start_war(budget: BudgetSystem) -> Dictionary:
 	budget.apply_levy(GameConstants.WAR_LEVY_HIT)
 	return {
 		"title": "Trade Embargo + Military Levy",
-		"body": "War event: tax income cut to %d%%. Levy −$%d." % [
+		"body": "War: tax income cut to %d%%, levy −$%d. Commercial/industrial demand crushed; residential holds better." % [
 			int(GameConstants.WAR_EMBARGO_TAX_MULT * 100.0),
 			GameConstants.WAR_LEVY_HIT
 		]
@@ -116,14 +200,19 @@ func start_disaster(map: MapData, budget: BudgetSystem) -> Dictionary:
 			active.append(chunk)
 	var target: ChunkData
 	if active.is_empty():
-		# Fall back to HQ chunk
 		target = map.chunk_at(map.hq.x, map.hq.y)
 	else:
 		target = active[randi() % active.size()]
 	map.damage_chunk(target.cx, target.cy)
 	return {
 		"title": "Disaster Strikes",
-		"body": "Chunk (%d,%d) damaged — zones offline. Demand crashed temporarily." % [
+		"body": "Chunk (%d,%d) damaged — zones offline. Residential demand collapsed; rebuild power/water/roads to recover." % [
 			target.cx, target.cy
 		]
 	}
+
+
+func demand_label() -> String:
+	return "RCI demand  R %.0f%% · C %.0f%% · I %.0f%%" % [
+		demand_r * 100.0, demand_c * 100.0, demand_i * 100.0
+	]
